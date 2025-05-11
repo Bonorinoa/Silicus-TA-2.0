@@ -212,6 +212,24 @@ class MistralRAGPipeline:
             messages=[{"role": "user", "content": prompt}],
         )
         return resp.choices[0].message.content.strip()
+    
+    def generate_answer_with_links(self, query, top_pages: pd.DataFrame,
+                               *, course, chat_history, temperature=0.3):
+        # build RAG prompt exactly as before
+        answer = self.generate_answer(query, top_pages,
+                                    course=course,
+                                    chat_history=chat_history,
+                                    temperature=temperature)
+
+        # inject HTML links for each page reference
+        numbered = {}
+        for i, row in enumerate(top_pages.itertuples(), 1):
+            link = f'<a href="?slide={row.file_path}|{row.page_number}">[{i}]</a>'
+            numbered[f"[{i}]"] = link
+        for k, v in numbered.items():
+            answer = answer.replace(k, v, 1)
+        return answer, numbered
+
 
 
 # ---------------------------------------------------------------------------

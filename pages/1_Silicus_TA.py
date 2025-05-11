@@ -6,6 +6,8 @@ import numpy as np
 
 from src.mistral_rag_pipeline import MistralRAGPipeline
 
+import base64, streamlit.components.v1 as components
+
 # --------------------------------------------------------------------- #
 # ─── 0. Configuration ──────────────────────────────────────────────── #
 st.set_page_config(page_title="Silicus TA", page_icon="💬")
@@ -100,20 +102,29 @@ if prompt:
         for m in st.session_state.messages[-6:]
     )
 
-    # ---- d) generation ------------
-    answer = pipeline.generate_answer(
-        prompt,
-        top_pages,
-        course=chosen_course,
-        chat_history=history,
-        temperature=0.2,
+    # ----- d) generation -----
+    answer, numbered_sources = pipeline.generate_answer_with_links(
+        prompt, top_pages, course=chosen_course, chat_history=history, temperature=0.2
     )
-    
-    with st.expander("📄 Sources"):
-        st.markdown(top_pages[['page_number','page_content']].to_markdown())
 
-    # assistant reply
+    # Render assistant answer with live links
     st.session_state.messages.append({"role": "assistant", "content": answer})
     with st.chat_message("assistant", avatar="🤖"):
-        st.markdown(answer)
+        st.markdown(answer, unsafe_allow_html=True)
+
+    # Modal handler (one per citation click)
+    clicked = st.query_params.get("slide")
+    if clicked:
+        path, page_num = clicked.split("|")
+        pdf_path = Path(path)
+        if pdf_path.is_file():
+            b64 = base64.b64encode(pdf_path.read_bytes()).decode()
+            with st.modal(f"{pdf_path.name} – page {page_num}"):
+                components.html(
+                    f'<iframe src="data:application/pdf;base64,{b64}#page={page_num}" '
+                    'width="100%" height="90%"></iframe>', height=700
+                )
+            # clear query param so refresh doesn’t reopen
+            st.query_params.clear()
+
 
