@@ -38,6 +38,6 @@ Welcome to **Silicus TA 2.0**, your course‑aware teaching assistant.
 
 Head to **➡️ Chat** in the sidebar to start, or **➡️ Admin** if you’re an
 instructor.
-"""
+""")
 
 st.page_link("pages/1_Silicus_TA.py", label="👉 Go to the Chat page")
