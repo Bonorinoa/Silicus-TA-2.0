@@ -58,36 +58,48 @@ pipeline, df_pages = load_pipeline_and_df(chosen_course)
 
 # --------------------------------------------------------------------- #
 # ─── 3. Chat UI  ────────────────────────────────────────────────────── #
-
 st.title(f"Silicus TA • {chosen_course.upper()}")
 
-# replay history
-for m in st.session_state.messages:
+# Replay previous turns
+for m in st.session_state.get("messages", []):
     with st.chat_message(m["role"]):
         st.markdown(m["content"])
 
 prompt = st.chat_input("Ask a question …")
 if prompt:
-    # ----- a) echo user -----
+    # ---- a) store + echo user ----
     st.session_state.messages.append({"role": "user", "content": prompt})
     with st.chat_message("user"):
         st.markdown(prompt)
 
-    # ----- b) retrieval -----
+    # ---- b) retrieval -------------
     q_vec = pipeline._embed_batch([prompt])[0]
     sims = 1 - np.array([
         (np.dot(q_vec, emb) /
          (np.linalg.norm(q_vec) * np.linalg.norm(emb)))
         for emb in df_pages["embedding"]
     ])
-    top_idx = sims.argsort()[:10]          # 10 most similar
+    top_idx = sims.argsort()[:10]
     top_pages = df_pages.iloc[top_idx].copy()
     top_pages["similarity"] = 1 - sims[top_idx]
 
-    # ----- c) generation -----
-    answer = pipeline.generate_answer(prompt, top_pages, temperature=0.2)
+    # ---- c) build chat‑history string (last 6 turns) ----
+    history = "\n".join(
+        f"{m['role']}: {m['content']}"
+        for m in st.session_state.messages[-6:]
+    )
+
+    # ---- d) generation ------------
+    answer = pipeline.generate_answer(
+        prompt,
+        top_pages,
+        course=chosen_course,
+        chat_history=history,
+        temperature=0.2,
+    )
 
     # assistant reply
     st.session_state.messages.append({"role": "assistant", "content": answer})
     with st.chat_message("assistant"):
         st.markdown(answer)
+

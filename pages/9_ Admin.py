@@ -1,0 +1,167 @@
+# pages/9_Admin.py  –  Streamlit Admin console
+from __future__ import annotations
+import base64, hashlib, json, os, shutil, tempfile
+from datetime import datetime
+from pathlib import Path
+from typing import Dict, List, Tuple
+
+import requests
+import streamlit as st
+import pandas as pd
+
+# --------------------------------------------------------------------------- #
+# 0. CONSTANTS & HELPERS
+DATA_ROOT = Path(__file__).parents[1] / "data"         # data/<course>/
+MAX_COURSE_MB = 300                                    # hard cap
+GH_API = "https://api.github.com"
+HEADERS = {"Authorization": f"token {st.secrets['GH_TOKEN']}"}
+GH_REPO = st.secrets["GH_REPO"]                        # "user/repo"
+
+def discover_courses(root: Path) -> Dict[str, Path]:
+    """Return {slug: parquet_path} for every existing course store."""
+    return {p.parent.name: p for p in root.glob("*/*_pages.parquet")}
+
+def file_sha256(b: bytes) -> str:
+    return hashlib.sha256(b).hexdigest()
+
+def bytes_mb(n_bytes: int) -> float:
+    return n_bytes / 1_048_576
+
+def folder_size(path: Path) -> float:
+    return bytes_mb(sum(f.stat().st_size for f in path.rglob("*") if f.is_file()))
+
+# GitHub helper ------------------------------------------------------------- #
+def github_upsert(repo_path: str, content: bytes, msg: str):
+    """Create/update a file in GitHub repo via REST."""
+    url = f"{GH_API}/repos/{GH_REPO}/contents/{repo_path}"
+    resp = requests.get(url, headers=HEADERS)
+    sha = resp.json().get("sha") if resp.status_code == 200 else None
+    payload = {
+        "message": msg,
+        "branch": "main",
+        "content": base64.b64encode(content).decode("utf-8"),
+        **({"sha": sha} if sha else {}),
+    }
+    r = requests.put(url, headers=HEADERS, data=json.dumps(payload))
+    r.raise_for_status()
+    return r.json()["commit"]["sha"]
+
+# reuse the pipeline embedding routine
+from src.precompute_embeddings import process_course   # noqa: E402
+
+# --------------------------------------------------------------------------- #
+# 1. VERY LIGHT AUTH
+if "admin_ok" not in st.session_state:
+    st.title("🔒 Admin login")
+    pw = st.text_input("Password", type="password")
+    if pw and pw == st.secrets["ADMIN_PASSWORD"]:
+        st.session_state.admin_ok = True
+        st.rerun()
+    st.stop()
+
+# --------------------------------------------------------------------------- #
+# 2. COURSE CARDS
+st.set_page_config(page_title="Silicus Admin", page_icon="🛠️")
+st.title("🛠️ Silicus TA – Course Manager")
+
+COURSES = discover_courses(DATA_ROOT)
+
+st.subheader("Existing courses")
+if COURSES:
+    cols = st.columns(3)
+    for i, (slug, pq_path) in enumerate(sorted(COURSES.items())):
+        with cols[i % 3]:
+            meta_path = pq_path.parent / "meta.json"
+            meta = json.loads(meta_path.read_text()) if meta_path.exists() else {}
+            pdf_dir = pq_path.parent / "pdfs"
+            n_pdfs = len(list(pdf_dir.glob("*.pdf")))
+            st.markdown(f"### {meta.get('title', slug.upper())}")
+            st.caption(f"{n_pdfs} PDF(s) • "
+                       f"updated {datetime.fromtimestamp(pq_path.stat().st_mtime).date()}")
+            if st.button("Manage", key=f"manage_{slug}"):
+                st.session_state.manage_slug = slug
+                st.rerun()
+else:
+    st.info("No courses yet. Use **Create new course** below.")
+
+# --------------------------------------------------------------------------- #
+# 3. CREATE COURSE
+with st.expander("➕ Create new course", expanded="manage_slug" not in st.session_state):
+    new_slug = st.text_input("Course slug (e.g. econ210)", key="new_slug")
+    new_title = st.text_input("Display title", key="new_title")
+    new_pdf_files = st.file_uploader("Upload PDF slides",
+                                     type="pdf",
+                                     accept_multiple_files=True,
+                                     key="new_pdfs")
+
+    if st.button("Create course") and new_slug and new_pdf_files:
+        if (DATA_ROOT / new_slug).exists():
+            st.error("Slug already exists. Pick another.")
+        else:
+            st.session_state.manage_slug = new_slug
+            st.session_state.upload_queue = new_pdf_files
+            st.session_state.new_course_title = new_title or new_slug.upper()
+            st.rerun()
+
+# --------------------------------------------------------------------------- #
+# 4. MANAGE PANEL
+if "manage_slug" in st.session_state:
+    slug = st.session_state.manage_slug
+    course_dir = DATA_ROOT / slug
+    pdf_dir = course_dir / "pdfs"
+    pdf_dir.mkdir(parents=True, exist_ok=True)
+
+    st.header(f"Manage course: {slug}")
+    upload_files = st.file_uploader("Add / replace PDFs",
+                                    type="pdf",
+                                    accept_multiple_files=True,
+                                    key=f"upload_{slug}")
+
+    if "upload_queue" in st.session_state:
+        # carry over files from new‑course flow
+        upload_files = upload_files or st.session_state.pop("upload_queue")
+
+    # ---------- DEDUP & SAVE ------------------------------------------------ #
+    if st.button("Save PDFs to workspace") and upload_files:
+        saved, skipped = 0, 0
+        for file in upload_files:
+            b = file.read()
+            if any(file_sha256(b) == file_sha256(p.read_bytes()) for p in pdf_dir.glob("*.pdf")):
+                skipped += 1
+                continue
+            (pdf_dir / file.name).write_bytes(b)
+            saved += 1
+        st.success(f"Saved {saved}; skipped {skipped} duplicates.")
+        st.rerun()
+
+    st.write(f"📁  Current folder size: **{folder_size(course_dir):.1f} MB** / {MAX_COURSE_MB} MB")
+    if folder_size(course_dir) > MAX_COURSE_MB:
+        st.error("Folder exceeds limit. Delete slides or split the course before embedding.")
+        st.stop()
+
+    # ---------- EMBED & COMMIT --------------------------------------------- #
+    if st.button("Rebuild embeddings ➜ Commit to GitHub"):
+        with st.spinner("Running OCR + embeddings … this may take a minute"):
+            process_course(course_dir, api_key=st.secrets["MISTRAL_API_KEY"])
+
+        # write / update meta.json
+        meta_path = course_dir / "meta.json"
+        meta = {"title": st.session_state.get("new_course_title", slug.upper()),
+                "updated": datetime.utcnow().isoformat() + "Z"}
+        meta_path.write_text(json.dumps(meta, indent=2))
+
+        # commit all PDFs, Parquet, meta to GitHub
+        changed_files: List[Tuple[Path, bytes]] = []
+        for p in course_dir.rglob("*"):
+            if p.is_file():
+                rel = p.relative_to(Path(__file__).parents[1])
+                changed_files.append((rel, p.read_bytes()))
+
+        for rel, b in changed_files:
+            github_upsert(str(rel).replace("\\", "/"),
+                          b,
+                          f"{slug}: update {rel.name}")
+
+        st.success("Committed to GitHub ✅")
+        st.cache_resource.clear()   # refresh cached embeddings in chat
+        st.rerun()
