@@ -97,6 +97,9 @@ if prompt:
         chat_history=history,
         temperature=0.2,
     )
+    
+    with st.expander("📄 Sources"):
+        st.markdown(top_pages[['page_number','page_content']].to_markdown())
 
     # assistant reply
     st.session_state.messages.append({"role": "assistant", "content": answer})

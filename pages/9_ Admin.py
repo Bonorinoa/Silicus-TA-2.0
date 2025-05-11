@@ -6,6 +6,7 @@ from pathlib import Path
 from typing import Dict, List, Tuple
 import json, pathlib
 from json import JSONDecodeError
+import base64, streamlit.components.v1 as components
 
 import requests
 import streamlit as st
@@ -141,6 +142,25 @@ with st.expander("➕  Create new course", expanded="manage_slug" not in st.sess
 
 # --------------------------------------------------------------------------- #
 # 4. MANAGE PANEL
+# current meta
+meta_path = course_dir / "meta.json"
+meta = safe_load_json(meta_path)
+with st.expander("📝 Edit course title"):
+    new_title = st.text_input("Display title", value=meta.get("title", slug.upper()))
+    if st.button("Save title"):
+        meta["title"] = new_title.strip() or slug.upper()
+        meta["updated"] = datetime.utcnow().isoformat() + "Z"
+        meta_path.write_text(json.dumps(meta, indent=2))
+
+        github_upsert(
+            str(meta_path.relative_to(Path(__file__).parents[1])),
+            meta_path.read_bytes(),
+            f"{slug}: rename course to '{meta['title']}'"
+        )
+        st.success("Title updated!")
+        st.cache_resource.clear()
+        st.rerun()
+
 if "manage_slug" in st.session_state:
     slug = st.session_state.manage_slug
     course_dir = DATA_ROOT / slug
@@ -174,6 +194,31 @@ if "manage_slug" in st.session_state:
     if folder_size(course_dir) > MAX_COURSE_MB:
         st.error("Folder exceeds limit. Delete slides or split the course before embedding.")
         st.stop()
+    
+    # ---------- LIST & MANAGE EXISTING PDFs ---------------------------------- #
+st.subheader("Slides in this course")
+for p in sorted(pdf_dir.glob("*.pdf")):
+    col1, col2, col3 = st.columns([4, 1, 1], gap="small")
+
+    # filename
+    col1.write(p.name)
+
+    # 👁️  PREVIEW  (inline expander)
+    if col2.button("👁️ Preview", key=f"prev_{p.name}"):
+        with st.expander(p.name, expanded=True):
+            import base64, streamlit.components.v1 as components
+            b64 = base64.b64encode(p.read_bytes()).decode()
+            components.html(
+                f'<iframe src="data:application/pdf;base64,{b64}" '
+                'width="100%" height="500"></iframe>',
+                height=520
+            )
+
+    # 🗑️  DELETE
+    if col3.button("🗑️ Delete", key=f"del_{p.name}"):
+        p.unlink()
+        st.warning(f"Deleted {p.name}")
+        st.rerun()
 
     # ---------- EMBED & COMMIT --------------------------------------------- #
     if st.button("Rebuild embeddings ➜ Commit to GitHub"):
@@ -199,5 +244,6 @@ if "manage_slug" in st.session_state:
                           f"{slug}: update {rel.name}")
 
         st.success("Committed to GitHub ✅")
+        st.toast("✅ Course updated!", icon="🎉")
         st.cache_resource.clear()   # refresh cached embeddings in chat
         st.rerun()
