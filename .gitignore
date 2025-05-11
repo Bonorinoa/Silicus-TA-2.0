@@ -6,6 +6,12 @@ __pycache__/
 # C extensions
 *.so
 
+# Streamlit
+.streamlit/
+
+# venv
+silicusTA_2_venv/
+
 # Distribution / packaging
 .Python
 build/
