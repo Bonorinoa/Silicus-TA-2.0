@@ -35,6 +35,21 @@ chosen_course = st.sidebar.selectbox(
     key="course_select",
 )
 
+st.sidebar.markdown(
+    """
+    Suggested prompt template:\n
+    <goal>
+    
+    </goal>\n
+    <guidelines>
+    
+    <guidelines>\n
+    <context>
+    
+    <context>\n
+    """,
+)
+
 # Reset chat if the user switched courses
 if "active_course" not in st.session_state or st.session_state.active_course != chosen_course:
     st.session_state.active_course = chosen_course
