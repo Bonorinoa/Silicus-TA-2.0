@@ -142,29 +142,29 @@ with st.expander("➕  Create new course", expanded="manage_slug" not in st.sess
 # --------------------------------------------------------------------------- #
 # 4. MANAGE PANEL
 # current meta
-meta_path = course_dir / "meta.json"
-meta = safe_load_json(meta_path)
-with st.expander("📝 Edit course title"):
-    new_title = st.text_input("Display title", value=meta.get("title", slug.upper()))
-    if st.button("Save title"):
-        meta["title"] = new_title.strip() or slug.upper()
-        meta["updated"] = datetime.utcnow().isoformat() + "Z"
-        meta_path.write_text(json.dumps(meta, indent=2))
-
-        github_upsert(
-            str(meta_path.relative_to(Path(__file__).parents[1])),
-            meta_path.read_bytes(),
-            f"{slug}: rename course to '{meta['title']}'"
-        )
-        st.success("Title updated!")
-        st.cache_resource.clear()
-        st.rerun()
-
 if "manage_slug" in st.session_state:
     slug = st.session_state.manage_slug
     course_dir = DATA_ROOT / slug
     pdf_dir = course_dir / "pdfs"
     pdf_dir.mkdir(parents=True, exist_ok=True)
+    
+    with st.expander("📝 Edit course title"):
+        meta_path = course_dir / "meta.json"
+        meta = safe_load_json(meta_path)
+        new_title = st.text_input("Display title", value=meta.get("title", slug.upper()))
+        if st.button("Save title"):
+            meta["title"] = new_title.strip() or slug.upper()
+            meta["updated"] = datetime.utcnow().isoformat() + "Z"
+            meta_path.write_text(json.dumps(meta, indent=2))
+
+            github_upsert(
+                str(meta_path.relative_to(Path(__file__).parents[1])),
+                meta_path.read_bytes(),
+                f"{slug}: rename course to '{meta['title']}'"
+            )
+            st.success("Title updated!")
+            st.cache_resource.clear()
+            st.rerun()
 
     st.header(f"Manage course: {slug}")
     upload_files = st.file_uploader("Add / replace PDFs",
