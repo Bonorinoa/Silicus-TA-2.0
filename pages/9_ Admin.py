@@ -4,6 +4,8 @@ import base64, hashlib, json, os, shutil, tempfile
 from datetime import datetime
 from pathlib import Path
 from typing import Dict, List, Tuple
+import json, pathlib
+from json import JSONDecodeError
 
 import requests
 import streamlit as st
@@ -16,6 +18,17 @@ MAX_COURSE_MB = 300                                    # hard cap
 GH_API = "https://api.github.com"
 HEADERS = {"Authorization": f"token {st.secrets['GH_TOKEN']}"}
 GH_REPO = st.secrets["GH_REPO"]                        # "user/repo"
+
+
+def safe_load_json(path: pathlib.Path) -> dict:
+    """Return {} if file missing or malformed."""
+    if not path.is_file():
+        return {}
+    try:
+        return json.loads(path.read_text())
+    except JSONDecodeError:
+        return {}
+
 
 def discover_courses(root: Path) -> Dict[str, Path]:
     """Return {slug: parquet_path} for every existing course store."""
@@ -72,7 +85,7 @@ if COURSES:
     for i, (slug, pq_path) in enumerate(sorted(COURSES.items())):
         with cols[i % 3]:
             meta_path = pq_path.parent / "meta.json"
-            meta = json.loads(meta_path.read_text()) if meta_path.exists() else {}
+            meta = safe_load_json(meta_path)
             pdf_dir = pq_path.parent / "pdfs"
             n_pdfs = len(list(pdf_dir.glob("*.pdf")))
             st.markdown(f"### {meta.get('title', slug.upper())}")
