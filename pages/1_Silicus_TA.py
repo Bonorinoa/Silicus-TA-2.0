@@ -39,9 +39,9 @@ with st.sidebar.expander("👤 User settings", expanded=True):
     st.markdown(
         "You can use the following template to ask questions:\n"
         "```\n"
-        "<goal>\n</goal>\n"
-        "<guidelines>\n</guidelines>\n"
-        "<context>\n</context>\n"
+        "<goal>\nDescribe the task for the LLM\n</goal>\n"
+        "<guidelines>\nDescsribe any formatting request or any sort of guidelines the LLM must be aware of\n</guidelines>\n"
+        "<context>\nDecribe addition context for the LLM to reference, like what have you tried or read already.</context>\n"
         "```"
     )
 
