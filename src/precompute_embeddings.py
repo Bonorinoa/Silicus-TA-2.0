@@ -27,6 +27,9 @@ def process_course(course_dir: Path, api_key: str) -> None:
     if not pages:
         print(f"[{slug}] – no PDFs")
         return
+    
+    for page in pages:
+        page["file_path"] = str(pdf)   # add this line
 
     embeds = pipeline._embed_batch([p["page_content"] for p in pages])
     df = pd.DataFrame(pages)

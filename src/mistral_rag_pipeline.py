@@ -224,8 +224,14 @@ class MistralRAGPipeline:
         # inject HTML links for each page reference
         numbered = {}
         for i, row in enumerate(top_pages.itertuples(), 1):
-            link = f'<a href="?slide={row.file_path}|{row.page_number}">[{i}]</a>'
+            if hasattr(row, "file_path"):
+                link = (
+                    f'<a href="?slide={row.file_path}|{row.page_number}">[{i}]</a>'
+                )
+            else:                     # fallback → plain citation label
+                link = f"[{i}]"
             numbered[f"[{i}]"] = link
+
         for k, v in numbered.items():
             answer = answer.replace(k, v, 1)
         return answer, numbered
