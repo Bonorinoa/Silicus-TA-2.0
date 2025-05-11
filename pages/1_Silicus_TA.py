@@ -27,28 +27,24 @@ if DEFAULT_COURSE not in COURSES and COURSES:
 
 # --------------------------------------------------------------------- #
 # ─── 1. Sidebar – course selector ───────────────────────────────────── #
-st.sidebar.title("Settings")
-chosen_course = st.sidebar.selectbox(
-    "Select course",
-    options=sorted(COURSES),
-    index=list(COURSES).index(DEFAULT_COURSE) if COURSES else 0,
-    key="course_select",
-)
+with st.sidebar.expander("👤 User settings", expanded=True):
+    st.markdown("**Select course**")
+    chosen_course = st.selectbox(
+        "Course",
+        options=sorted(COURSES),
+        index=sorted(COURSES).index(DEFAULT_COURSE),
+    )
 
-st.sidebar.markdown(
-    """
-    Suggested prompt template:\n
-    <goal>
-    
-    </goal>\n
-    <guidelines>
-    
-    <guidelines>\n
-    <context>
-    
-    <context>\n
-    """,
-)
+    st.markdown("**Prompt Template**")
+    st.markdown(
+        "You can use the following template to ask questions:\n"
+        "```\n"
+        "<goal>\n</goal>\n"
+        "<guidelines>\n</guidelines>\n"
+        "<context>\n</context>\n"
+        "```"
+    )
+
 
 # Reset chat if the user switched courses
 if "active_course" not in st.session_state or st.session_state.active_course != chosen_course:
