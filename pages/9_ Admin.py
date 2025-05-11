@@ -99,7 +99,7 @@ else:
 
 # --------------------------------------------------------------------------- #
 # 3. CREATE COURSE
-with st.expander("➕ Create new course", expanded="manage_slug" not in st.session_state):
+with st.expander("➕  Create new course", expanded="manage_slug" not in st.session_state):
     new_slug = st.text_input("Course slug (e.g. econ210)", key="new_slug")
     new_title = st.text_input("Display title", key="new_title")
     new_pdf_files = st.file_uploader("Upload PDF slides",
@@ -108,13 +108,36 @@ with st.expander("➕ Create new course", expanded="manage_slug" not in st.sess
                                      key="new_pdfs")
 
     if st.button("Create course") and new_slug and new_pdf_files:
-        if (DATA_ROOT / new_slug).exists():
-            st.error("Slug already exists. Pick another.")
+        course_dir = DATA_ROOT / new_slug / "pdfs"
+        if course_dir.exists():
+            st.error("Slug already exists.")
         else:
-            st.session_state.manage_slug = new_slug
-            st.session_state.upload_queue = new_pdf_files
-            st.session_state.new_course_title = new_title or new_slug.upper()
+            course_dir.mkdir(parents=True, exist_ok=True)
+            for f in new_pdf_files:
+                (course_dir / f.name).write_bytes(f.read())
+
+            # run embeddings right away
+            process_course(course_dir.parent, api_key=st.secrets["MISTRAL_API_KEY"])
+
+            # write meta
+            meta_path = course_dir.parent / "meta.json"
+            meta_path.write_text(json.dumps({
+                "title": new_title or new_slug.upper(),
+                "updated": datetime.utcnow().isoformat() + "Z"
+            }, indent=2))
+
+            # commit everything
+            for p in course_dir.parent.rglob("*"):
+                if p.is_file():
+                    rel = p.relative_to(Path(__file__).parents[1])
+                    github_upsert(str(rel).replace("\\", "/"),
+                                  p.read_bytes(),
+                                  f"{new_slug}: add {p.name}")
+
+            st.success("Course created and committed! Refreshing …")
+            st.cache_resource.clear()
             st.rerun()
+
 
 # --------------------------------------------------------------------------- #
 # 4. MANAGE PANEL
