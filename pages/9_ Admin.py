@@ -6,7 +6,6 @@ from pathlib import Path
 from typing import Dict, List, Tuple
 import json, pathlib
 from json import JSONDecodeError
-import base64, streamlit.components.v1 as components
 
 import requests
 import streamlit as st
@@ -194,31 +193,7 @@ if "manage_slug" in st.session_state:
     if folder_size(course_dir) > MAX_COURSE_MB:
         st.error("Folder exceeds limit. Delete slides or split the course before embedding.")
         st.stop()
-    
-    # ---------- LIST & MANAGE EXISTING PDFs ---------------------------------- #
-st.subheader("Slides in this course")
-for p in sorted(pdf_dir.glob("*.pdf")):
-    col1, col2, col3 = st.columns([4, 1, 1], gap="small")
-
-    # filename
-    col1.write(p.name)
-
-    # 👁️  PREVIEW  (inline expander)
-    if col2.button("👁️ Preview", key=f"prev_{p.name}"):
-        with st.expander(p.name, expanded=True):
-            import base64, streamlit.components.v1 as components
-            b64 = base64.b64encode(p.read_bytes()).decode()
-            components.html(
-                f'<iframe src="data:application/pdf;base64,{b64}" '
-                'width="100%" height="500"></iframe>',
-                height=520
-            )
-
-    # 🗑️  DELETE
-    if col3.button("🗑️ Delete", key=f"del_{p.name}"):
-        p.unlink()
-        st.warning(f"Deleted {p.name}")
-        st.rerun()
+        
 
     # ---------- EMBED & COMMIT --------------------------------------------- #
     if st.button("Rebuild embeddings ➜ Commit to GitHub"):
