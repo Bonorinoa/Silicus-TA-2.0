@@ -69,7 +69,7 @@ prompt = st.chat_input("Ask a question …")
 if prompt:
     # ---- a) store + echo user ----
     st.session_state.messages.append({"role": "user", "content": prompt})
-    with st.chat_message("user"):
+    with st.chat_message("user", avatar="🧑‍🎓"):
         st.markdown(prompt)
 
     # ---- b) retrieval -------------
@@ -100,6 +100,6 @@ if prompt:
 
     # assistant reply
     st.session_state.messages.append({"role": "assistant", "content": answer})
-    with st.chat_message("assistant"):
+    with st.chat_message("assistant", avatar="🤖"):
         st.markdown(answer)
 
