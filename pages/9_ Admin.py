@@ -217,6 +217,19 @@ if "manage_slug" in st.session_state:
             st.success("Title updated!")
             st.cache_resource.clear()
             st.rerun()
+        
+        st.markdown("---")
+        st.warning("⚠️ Danger Zone")
+        if st.button("🗑️ Delete Entire Course", type="primary", use_container_width=True):
+            delete_confirmed = st.checkbox("I understand this will permanently delete all course files and cannot be undone")
+            if delete_confirmed and st.button("Confirm Deletion", type="primary"):
+                # Delete the course directory
+                shutil.rmtree(course_dir)
+                st.success(f"Course '{slug}' deleted successfully")
+                st.cache_resource.clear()
+                # Return to course list
+                st.session_state.pop("manage_slug")
+                st.rerun()
 
     st.header(f"Manage course: {slug}")
     upload_files = st.file_uploader("Add / replace PDFs",

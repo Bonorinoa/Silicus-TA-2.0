@@ -37,15 +37,19 @@ with st.sidebar.expander("👤 User settings", expanded=True):
         index=sorted(COURSES).index(DEFAULT_COURSE),
     )
 
-    st.markdown("**Prompt Template**")
-    st.markdown(
-        "You can use the following template to ask questions:\n"
-        "```\n"
-        "<goal>\nDescribe the task for the LLM\n</goal>\n"
-        "<guidelines>\nDescsribe any formatting request or any sort of guidelines the LLM must be aware of\n</guidelines>\n"
-        "<context>\nDecribe addition context for the LLM to reference, like what have you tried or read already.</context>\n"
-        "```"
-    )
+    st.markdown("**Try these questions:**")
+    example_questions = [
+        "What are the key learning outcomes for this course?",
+        "Explain the concept of [topic] from lecture 3",
+        "What's the professor's policy on late assignments?",
+        "When is the final exam and what does it cover?",
+        "How does [concept] relate to [other concept]?"
+    ]
+
+    for q in example_questions:
+        if st.button(q, key=f"example_{q[:20]}", use_container_width=True):
+            st.session_state.example_question = q
+            st.rerun()
 
 
 # Reset chat if the user switched courses
@@ -78,7 +82,10 @@ for m in st.session_state.get("messages", []):
     with st.chat_message(m["role"]):
         st.markdown(m["content"])
 
-prompt = st.chat_input("Ask a question …")
+if "example_question" in st.session_state:
+    prompt = st.chat_input("Ask a question …", value=st.session_state.pop("example_question"))
+else:
+    prompt = st.chat_input("Ask a question …")
 if prompt:
     # ---- a) store + echo user ----
     st.session_state.messages.append({"role": "user", "content": prompt})
