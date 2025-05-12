@@ -37,18 +37,20 @@ with st.sidebar.expander("👤 User settings", expanded=True):
         index=sorted(COURSES).index(DEFAULT_COURSE),
     )
 
-    st.markdown("**Try these questions:**")
+with st.sidebar.expander("💡 Suggested Questions", expanded=True):
+    st.markdown("Click any example to use it:")
     example_questions = [
         "What are the key learning outcomes for this course?",
-        "Explain the concept of [topic] from lecture 3",
+        "Explain the concept of MLE from lecture 3",
         "What's the professor's policy on late assignments?",
         "When is the final exam and what does it cover?",
-        "How does [concept] relate to [other concept]?"
+        "How does regression relate to maximum likelihood?"
     ]
 
     for q in example_questions:
-        if st.button(q, key=f"example_{q[:20]}", use_container_width=True):
-            st.session_state.example_question = q
+        if st.button(q, key=f"example_{hash(q)}", use_container_width=True):
+            # Store in session state for access in chat
+            st.session_state.prefill_chat = q
             st.rerun()
 
 
@@ -82,10 +84,23 @@ for m in st.session_state.get("messages", []):
     with st.chat_message(m["role"]):
         st.markdown(m["content"])
 
-if "example_question" in st.session_state:
-    prompt = st.chat_input("Ask a question …", value=st.session_state.pop("example_question"))
-else:
-    prompt = st.chat_input("Ask a question …")
+prompt = st.chat_input("Ask a question …")
+
+if "prefill_chat" in st.session_state:
+    prefill_text = st.session_state.pop("prefill_chat")
+    js_code = f"""
+    <script>
+    const textareas = parent.document.querySelectorAll('textarea');
+    const chatInput = textareas[textareas.length - 1];
+    if (chatInput) {{
+        chatInput.value = {json.dumps(prefill_text)};
+        // Focus the textarea
+        chatInput.focus();
+    }}
+    </script>
+    """
+    st.components.v1.html(js_code, height=0)
+    
 if prompt:
     # ---- a) store + echo user ----
     st.session_state.messages.append({"role": "user", "content": prompt})
