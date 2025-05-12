@@ -219,33 +219,46 @@ if "manage_slug" in st.session_state:
             st.rerun()
         
     st.markdown("---")
-    st.warning("⚠️ Danger Zone")
-    if st.button("🗑️ Delete Entire Course", type="primary", use_container_width=True):
-        delete_confirmed = st.checkbox("I understand this will permanently delete all course files and cannot be undone")
-        if delete_confirmed and st.button("Confirm Deletion", type="primary"):
-            # Record deleted paths to remove from GitHub
-            for p in course_dir.rglob("*"):
-                if p.is_file():
-                    rel_path = str(p.relative_to(Path(__file__).parents[1])).replace("\\", "/")
-                    # Delete from GitHub
-                    url = f"{GH_API}/repos/{GH_REPO}/contents/{rel_path}"
-                    resp = requests.get(url, headers=HEADERS)
-                    if resp.status_code == 200:
-                        sha = resp.json().get("sha")
-                        payload = {
-                            "message": f"Delete {slug} course files",
-                            "branch": "main",
-                            "sha": sha
-                        }
-                        requests.delete(url, headers=HEADERS, data=json.dumps(payload))
-                
-                # Delete local files
-                shutil.rmtree(course_dir)
-                st.success(f"Course '{slug}' deleted successfully")
-                st.cache_resource.clear()
-                # Return to course list
-                st.session_state.pop("manage_slug")
-                st.rerun()
+    with st.expander("⚠️ Danger Zone - Delete Course", expanded=False):
+        st.warning(f"This will permanently delete {slug} course and all its files")
+        
+        # Use session state to track deletion confirmation
+        if "delete_confirmed" not in st.session_state:
+            st.session_state.delete_confirmed = False
+        
+        # Checkbox for confirmation
+        delete_confirmed = st.checkbox(
+            "I understand this will permanently delete all course files and cannot be undone",
+            key=f"confirm_delete_{slug}"
+        )
+        
+        # Only show the confirmation button if checkbox is checked
+        if delete_confirmed:
+            if st.button("Confirm Deletion", type="primary", key=f"delete_button_{slug}"):
+                try:
+                    # Remove files from GitHub first
+                    for p in course_dir.rglob("*"):
+                        if p.is_file():
+                            rel_path = str(p.relative_to(Path(__file__).parents[1])).replace("\\", "/")
+                            url = f"{GH_API}/repos/{GH_REPO}/contents/{rel_path}"
+                            resp = requests.get(url, headers=HEADERS)
+                            if resp.status_code == 200:
+                                sha = resp.json().get("sha")
+                                payload = {
+                                    "message": f"Delete {slug} course files",
+                                    "branch": "main",
+                                    "sha": sha
+                                }
+                                requests.delete(url, headers=HEADERS, data=json.dumps(payload))
+                    
+                    # Then delete local directory
+                    shutil.rmtree(course_dir)
+                    st.session_state.pop("manage_slug", None)
+                    st.cache_resource.clear()
+                    st.success(f"Course '{slug}' deleted successfully")
+                    st.rerun()
+                except Exception as e:
+                    st.error(f"Error deleting course: {e}")
 
     st.header(f"Manage course: {slug}")
     upload_files = st.file_uploader("Add / replace PDFs",
