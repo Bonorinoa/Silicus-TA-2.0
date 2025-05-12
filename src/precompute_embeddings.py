@@ -15,7 +15,8 @@ from src.mistral_rag_pipeline import MistralRAGPipeline  # ← fixed import
 
 # ---------------------------------------------------------------------------
 
-def process_course(course_dir: Path, api_key: str) -> None:
+def process_course(course_dir: Path, api_key: str, 
+                   progress_callback=None) -> None:
     """OCR & embed every PDF in <course_dir>/pdfs, save parquet."""
     slug = course_dir.name
     pdf_dir = course_dir / "pdfs"
@@ -28,8 +29,10 @@ def process_course(course_dir: Path, api_key: str) -> None:
         print(f"[{slug}] – no PDFs")
         return
     
+    # Add file_path to each page for citation linking
     for page in pages:
-        page["file_path"] = str(pdf)   # add this line
+        pdf_path = pdf_dir / page["filename"]
+        page["file_path"] = str(pdf_path)
 
     embeds = pipeline._embed_batch([p["page_content"] for p in pages])
     df = pd.DataFrame(pages)
@@ -37,7 +40,13 @@ def process_course(course_dir: Path, api_key: str) -> None:
     out = course_dir / f"{slug}_pages.parquet"
     out.parent.mkdir(parents=True, exist_ok=True)
     df.to_parquet(out)
-    print(f"✓ {slug}: {len(df)} pages saved to {out}")
+    
+    if progress_callback:
+        progress_callback(1.0, f"Saved {len(df)} pages to {out}")
+    else:
+        print(f"✓ {slug}: {len(df)} pages saved to {out}")
+    
+    return df
 
 # ---------------------------------------------------------------------------
 

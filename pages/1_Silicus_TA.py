@@ -112,19 +112,81 @@ if prompt:
     with st.chat_message("assistant", avatar="🤖"):
         st.markdown(answer, unsafe_allow_html=True)
 
-    # Modal handler (one per citation click)
-    clicked = st.query_params.get("slide")
-    if clicked:
-        path, page_num = clicked.split("|")
-        pdf_path = Path(path)
-        if pdf_path.is_file():
-            b64 = base64.b64encode(pdf_path.read_bytes()).decode()
-            with st.modal(f"{pdf_path.name} – page {page_num}"):
-                components.html(
-                    f'<iframe src="data:application/pdf;base64,{b64}#page={page_num}" '
-                    'width="100%" height="90%"></iframe>', height=700
-                )
-            # clear query param so refresh doesn’t reopen
-            st.query_params.clear()
+        # Modal handler (one per citation click)
+        clicked = st.query_params.get("slide")
+        if clicked:
+            path, page_num = clicked.split("|")
+            pdf_path = Path(path)
+            if pdf_path.is_file():
+                # Create a temporary link to the PDF
+                st.session_state.pdf_view = {
+                    "path": pdf_path,
+                    "page": page_num
+                }
+                
+                # Open PDF in new tab
+                b64 = base64.b64encode(pdf_path.read_bytes()).decode()
+                pdf_url = f"data:application/pdf;base64,{b64}#page={page_num}"
+                
+                with st.popover(f"PDF Source: {pdf_path.name}, Page {page_num}", use_container_width=True):
+                    st.link_button("📄 Open PDF in new tab", pdf_url, use_container_width=True)
+                    
+                    # Alternative inline view
+                    with st.expander("Or view inline"):
+                        components.html(
+                            f'<embed src="data:application/pdf;base64,{b64}#page={page_num}" '
+                            'width="100%" height="500" type="application/pdf">',
+                            height=520
+                        )
+                
+                # Clear query param so refresh doesn't reopen
+                st.query_params.clear()
 
 
+        # Add sources expander inside the assistant's message
+        with st.expander("📚 Sources", expanded=False):
+            st.markdown("### Referenced Excerpts")
+            
+            for i, (_, row) in enumerate(top_pages.iterrows(), 1):
+                filename = row['filename']
+                page_num = row['page_number']
+                similarity = f"{row['similarity']:.2f}"
+                excerpt = row['page_content']
+                
+                st.markdown(f"**[{i}] {filename} (Page {page_num}) · Similarity: {similarity}**")
+                st.markdown(f"```\n{excerpt}\n```")
+                
+                # Add unique key to each download button
+                pdf_path = DATA_ROOT / chosen_course / "pdfs" / filename
+                if pdf_path.exists():
+                    with open(pdf_path, "rb") as file:
+                        st.download_button(
+                            label=f"Download {filename}",
+                            data=file,
+                            file_name=filename,
+                            mime="application/pdf",
+                            key=f"download_{i}_{filename}"  # Add unique key
+                        )
+                st.markdown("---")
+        
+        
+        # Add at the bottom of the file, after generating the answer
+        # Make sure we're displaying the sources expander
+        #with st.expander("📚 Sources", expanded=False):
+        #    from tabulate import tabulate
+        #    
+        #    # Format sources table with clickable links
+        #    table_data = []
+        #    for i, (_, row) in enumerate(top_pages.iterrows(), 1):
+        #        filename = row['filename']
+        #        page_num = row['page_number']
+        #        similarity = f"{row['similarity']:.2f}"
+        #        excerpt = row['page_content'][:100] + "..." 
+        #        
+        #        # Create a link for each source
+        #        link = f"[View PDF](/PDF_Viewer?course={chosen_course}&filename=#{filename}&page={page_num})"
+        #        
+        #        table_data.append([i, filename, page_num, similarity, excerpt, #link])
+        #    
+        #    headers = ["#", "Document", "Page", "Similarity", "Excerpt", "Link"]
+        #    st.markdown(tabulate(table_data, headers, tablefmt="pipe"))

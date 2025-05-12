@@ -15,6 +15,7 @@ import base64, streamlit.components.v1 as components
 
 # --------------------------------------------------------------------------- #
 # 0. CONSTANTS & HELPERS
+st.set_page_config(page_title="Silicus Admin", page_icon="🛠️")
 DATA_ROOT = Path(__file__).parents[1] / "data"         # data/<course>/
 MAX_COURSE_MB = 300                                    # hard cap
 GH_API = "https://api.github.com"
@@ -65,18 +66,46 @@ def github_upsert(repo_path: str, content: bytes, msg: str):
 from src.precompute_embeddings import process_course   # noqa: E402
 
 # --------------------------------------------------------------------------- #
-# 1. VERY LIGHT AUTH
+# 1.  ENHANCED ADMIN AUTH
 if "admin_ok" not in st.session_state:
-    st.title("🔒 Admin login")
+    st.title("🔒 Admin login")
     pw = st.text_input("Password", type="password")
-    if pw and pw == st.secrets["ADMIN_PASSWORD"]:
-        st.session_state.admin_ok = True
-        st.rerun()
+    
+    # Add rate limiting for security
+    if "login_attempts" not in st.session_state:
+        st.session_state.login_attempts = 0
+    
+    if pw:
+        if pw == st.secrets["ADMIN_PASSWORD"]:
+            st.session_state.admin_ok = True
+            st.session_state.auth_time = datetime.now()
+            st.session_state.login_attempts = 0
+            st.rerun()
+        else:
+            st.session_state.login_attempts += 1
+            wait_time = min(5 * (2 ** (st.session_state.login_attempts - 1)), 60)
+            st.error(f"Invalid password. Please wait {wait_time} seconds before trying again.")
+            import time
+            time.sleep(wait_time)
     st.stop()
+
+# Check session expiration (2 hours)
+if "auth_time" in st.session_state:
+    if (datetime.now() - st.session_state.auth_time).total_seconds() > 7200:  # 2 hours
+        st.warning("Your session has expired. Please log in again.")
+        st.session_state.pop("admin_ok")
+        st.session_state.pop("auth_time")
+        st.rerun()
+
+# Add logout button to sidebar
+with st.sidebar:
+    if st.button("Logout Admin"):
+        st.session_state.pop("admin_ok", None)
+        st.session_state.pop("auth_time", None)
+        st.rerun()
 
 # --------------------------------------------------------------------------- #
 # 2. COURSE CARDS
-st.set_page_config(page_title="Silicus Admin", page_icon="🛠️")
 st.title("🛠️ Silicus TA – Course Manager")
 
 COURSES = discover_courses(DATA_ROOT)
@@ -204,15 +233,10 @@ if "manage_slug" in st.session_state:
         # filename
         col1.write(p.name)
 
-        # 👁️  inline preview in an expander
-        if col2.button("👁️ Preview", key=f"prev_{p.name}"):
-            with st.expander(p.name, expanded=True):
-                b64 = base64.b64encode(p.read_bytes()).decode()
-                components.html(
-                    f'<iframe src="data:application/pdf;base64,{b64}" '
-                    'width="100%" height="500"></iframe>',
-                    height=520
-                )
+        # Update the preview button to open in new tab
+        if col2.button("👁️ Preview", key=f"prev_{p.name}"):
+            pdf_path = str(p)
+            st.link_button("Open in new tab", f"/PDF_Viewer?path={pdf_path}&page=1", use_container_width=True)
 
         # 🗑️  delete file
         if col3.button("🗑️ Delete", key=f"del_{p.name}"):

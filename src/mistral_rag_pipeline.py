@@ -214,26 +214,27 @@ class MistralRAGPipeline:
         return resp.choices[0].message.content.strip()
     
     def generate_answer_with_links(self, query, top_pages: pd.DataFrame,
-                               *, course, chat_history, temperature=0.3):
-        # build RAG prompt exactly as before
+                           *, course, chat_history, temperature=0.3):
+        # Build RAG prompt as before
         answer = self.generate_answer(query, top_pages,
                                     course=course,
                                     chat_history=chat_history,
                                     temperature=temperature)
 
-        # inject HTML links for each page reference
+        # Create more robust links
         numbered = {}
         for i, row in enumerate(top_pages.itertuples(), 1):
-            if hasattr(row, "file_path"):
-                link = (
-                    f'<a href="?slide={row.file_path}|{row.page_number}">[{i}]</a>'
-                )
-            else:                     # fallback → plain citation label
-                link = f"[{i}]"
+            # Use filename directly and pass course as parameter
+            link = (
+                f'<a href="/PDF_Viewer?course={course}&filename={row.filename}&page={row.page_number}" '
+                f'target="_blank">[{i}]</a>'
+            )
             numbered[f"[{i}]"] = link
 
+        # Replace citations in answer with links
         for k, v in numbered.items():
-            answer = answer.replace(k, v, 1)
+            answer = answer.replace(k, v)
+        
         return answer, numbered
 
 
