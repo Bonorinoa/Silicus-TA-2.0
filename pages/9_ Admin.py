@@ -112,43 +112,40 @@ COURSES = discover_courses(DATA_ROOT)
 
 st.subheader("Existing courses")
 if COURSES:
-    # Create a clean card-based layout using Streamlit containers
-    num_courses = len(COURSES)
-    rows = (num_courses + 2) // 3  # Calculate rows needed
-    
-    for row in range(rows):
+    # Use simple columns
+    for i in range(0, len(COURSES), 3):
+        # Create a row of 3 columns
         cols = st.columns(3)
-        for col_idx in range(3):
-            course_idx = row * 3 + col_idx
-            if course_idx < num_courses:
-                slug = sorted(COURSES.keys())[course_idx]
+        
+        # Fill each column with a course (if available)
+        for j in range(3):
+            if i+j < len(COURSES):
+                slug = sorted(COURSES.keys())[i+j]
                 pq_path = COURSES[slug]
                 
-                with cols[col_idx]:
-                    # Create card container
-                    with st.container():
-                        # Card styling
-                        st.markdown("---")
-                        
-                        # Course title
-                        meta_path = pq_path.parent / "meta.json"
-                        meta = safe_load_json(meta_path)
-                        title = meta.get('title', slug.upper())
-                        st.subheader(title)
-                        
-                        # Stats
-                        pdf_dir = pq_path.parent / "pdfs"
-                        n_pdfs = len(list(pdf_dir.glob("*.pdf")))
-                        folder_mb = folder_size(pq_path.parent)
-                        updated = datetime.fromtimestamp(pq_path.stat().st_mtime).date()
-                        
-                        st.caption(f"📄 {n_pdfs} PDFs • 💾 {folder_mb:.1f} MB • 🔄 {updated}")
-                        
-                        # Manage button
-                        if st.button("Manage", key=f"manage_{slug}", use_container_width=True):
-                            st.session_state.manage_slug = slug
-                            st.rerun()
-                        st.markdown("---")
+                with cols[j]:
+                    # Simple card with border
+                    st.markdown("---")
+                    
+                    # Course title
+                    meta_path = pq_path.parent / "meta.json"
+                    meta = safe_load_json(meta_path)
+                    st.subheader(meta.get('title', slug.upper()))
+                    
+                    # Course stats
+                    pdf_dir = pq_path.parent / "pdfs"
+                    n_pdfs = len(list(pdf_dir.glob("*.pdf")))
+                    folder_mb = folder_size(pq_path.parent)
+                    
+                    st.write(f"📄 {n_pdfs} PDFs • 💾 {folder_mb:.1f} MB")
+                    st.write(f"🔄 Updated {datetime.fromtimestamp(pq_path.stat().st_mtime).date()}")
+                    
+                    # Manage button
+                    if st.button("Manage", key=f"manage_{slug}", use_container_width=True):
+                        st.session_state.manage_slug = slug
+                        st.rerun()
+                    
+                    st.markdown("---")
 else:
     st.info("No courses yet. Use **Create new course** below.")
 
