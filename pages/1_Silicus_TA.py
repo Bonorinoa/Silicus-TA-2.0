@@ -39,20 +39,14 @@ with st.sidebar.expander("👤 User settings", expanded=True):
     )
 
 with st.sidebar.expander("💡 Suggested Questions", expanded=True):
-    st.markdown("Click any example to use it:")
-    example_questions = [
-        "What are the key learning outcomes for this course?",
-        "Explain the concept of MLE from lecture 3",
-        "What's the professor's policy on late assignments?",
-        "When is the final exam and what does it cover?",
-        "How does regression relate to maximum likelihood?"
-    ]
-
-    for q in example_questions:
-        if st.button(q, key=f"example_{hash(q)}", use_container_width=True):
-            # Store in session state for access in chat
-            st.session_state.prefill_chat = q
-            st.rerun()
+    st.markdown("**Try asking:**")
+    st.markdown("""
+    * What are the key learning outcomes for this course?
+    * Explain the concept of MLE from lecture 3
+    * What's the professor's policy on late assignments?
+    * When is the final exam and what does it cover?
+    * How does regression relate to maximum likelihood?
+    """)
 
 
 # Reset chat if the user switched courses
