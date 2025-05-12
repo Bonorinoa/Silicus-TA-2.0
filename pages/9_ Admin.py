@@ -114,7 +114,7 @@ st.subheader("Existing courses")
 if COURSES:
     # Create a clean card-based layout using Streamlit containers
     num_courses = len(COURSES)
-    rows = (num_courses + 2) // 3  # Calculate rows needed (ceiling division)
+    rows = (num_courses + 2) // 3  # Calculate rows needed
     
     for row in range(rows):
         cols = st.columns(3)
@@ -125,25 +125,30 @@ if COURSES:
                 pq_path = COURSES[slug]
                 
                 with cols[col_idx]:
+                    # Create card container
                     with st.container():
-                        # Create a card-like container with border
-                        st.markdown(f"""
-                        <div style="border: 1px solid #e0e0e0; border-radius: 8px; padding: 15px; background-color: #f8f9fa;">
-                            <h3>{safe_load_json(pq_path.parent / 'meta.json').get('title', slug.upper())}</h3>
-                        </div>
-                        """, unsafe_allow_html=True)
+                        # Card styling
+                        st.markdown("---")
+                        
+                        # Course title
+                        meta_path = pq_path.parent / "meta.json"
+                        meta = safe_load_json(meta_path)
+                        title = meta.get('title', slug.upper())
+                        st.subheader(title)
                         
                         # Stats
                         pdf_dir = pq_path.parent / "pdfs"
                         n_pdfs = len(list(pdf_dir.glob("*.pdf")))
                         folder_mb = folder_size(pq_path.parent)
+                        updated = datetime.fromtimestamp(pq_path.stat().st_mtime).date()
                         
-                        st.caption(f"{n_pdfs} PDF(s) • {folder_mb:.1f} MB • Updated {datetime.fromtimestamp(pq_path.stat().st_mtime).date()}")
+                        st.caption(f"📄 {n_pdfs} PDFs • 💾 {folder_mb:.1f} MB • 🔄 {updated}")
                         
-                        # Manage button aligned with the card
+                        # Manage button
                         if st.button("Manage", key=f"manage_{slug}", use_container_width=True):
                             st.session_state.manage_slug = slug
                             st.rerun()
+                        st.markdown("---")
 else:
     st.info("No courses yet. Use **Create new course** below.")
 
