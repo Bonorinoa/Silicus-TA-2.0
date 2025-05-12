@@ -105,50 +105,27 @@ with st.sidebar:
         st.rerun()
 
 # --------------------------------------------------------------------------- #
-# 2. COURSE CARDS with consistent alignment
+# 2. COURSE CARDS
 st.title("🛠️ Silicus TA – Course Manager")
 
 COURSES = discover_courses(DATA_ROOT)
 
 st.subheader("Existing courses")
 if COURSES:
-    # Calculate rows needed
-    num_courses = len(COURSES)
-    rows_needed = (num_courses + 2) // 3
-    sorted_courses = sorted(COURSES.keys())
-    
-    # Create rows with fixed height cards
-    for row in range(rows_needed):
+    # Use simple columns
+    for i in range(0, len(COURSES), 3):
+        # Create a row of 3 columns
         cols = st.columns(3)
         
-        for col_idx in range(3):
-            course_idx = row * 3 + col_idx
-            
-            # Create a consistent fixed-height container
-            with cols[col_idx]:
-                st.markdown("""
-                <style>
-                .fixed-card {
-                    min-height: 200px;
-                    display: flex;
-                    flex-direction: column;
-                    border-bottom: 1px solid rgba(250, 250, 250, 0.2);
-                    margin-bottom: 20px;
-                    padding-bottom: 10px;
-                }
-                .card-content {
-                    flex-grow: 1;
-                }
-                </style>
-                """, unsafe_allow_html=True)
+        # Fill each column with a course (if available)
+        for j in range(3):
+            if i+j < len(COURSES):
+                slug = sorted(COURSES.keys())[i+j]
+                pq_path = COURSES[slug]
                 
-                st.markdown('<div class="fixed-card">', unsafe_allow_html=True)
-                
-                # Card content or empty space
-                st.markdown('<div class="card-content">', unsafe_allow_html=True)
-                if course_idx < num_courses:
-                    slug = sorted_courses[course_idx]
-                    pq_path = COURSES[slug]
+                with cols[j]:
+                    # Simple card with border
+                    st.markdown("---")
                     
                     # Course title
                     meta_path = pq_path.parent / "meta.json"
@@ -162,19 +139,13 @@ if COURSES:
                     
                     st.write(f"📄 {n_pdfs} PDFs • 💾 {folder_mb:.1f} MB")
                     st.write(f"🔄 Updated {datetime.fromtimestamp(pq_path.stat().st_mtime).date()}")
-                st.markdown('</div>', unsafe_allow_html=True)
-                
-                # Bottom-aligned manage button
-                if course_idx < num_courses:
-                    slug = sorted_courses[course_idx]
+                    
+                    # Manage button
                     if st.button("Manage", key=f"manage_{slug}", use_container_width=True):
                         st.session_state.manage_slug = slug
                         st.rerun()
-                else:
-                    # Empty placeholder for alignment
-                    st.markdown('<div style="height: 38px;"></div>', unsafe_allow_html=True)
-                
-                st.markdown('</div>', unsafe_allow_html=True)
+                    
+                    st.markdown("---")
 else:
     st.info("No courses yet. Use **Create new course** below.")
 
