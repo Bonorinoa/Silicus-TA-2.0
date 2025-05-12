@@ -218,26 +218,26 @@ if "manage_slug" in st.session_state:
             st.cache_resource.clear()
             st.rerun()
         
-        st.markdown("---")
-        st.warning("⚠️ Danger Zone")
-        if st.button("🗑️ Delete Entire Course", type="primary", use_container_width=True):
-            delete_confirmed = st.checkbox("I understand this will permanently delete all course files and cannot be undone")
-            if delete_confirmed and st.button("Confirm Deletion", type="primary"):
-                # Record deleted paths to remove from GitHub
-                for p in course_dir.rglob("*"):
-                    if p.is_file():
-                        rel_path = str(p.relative_to(Path(__file__).parents[1])).replace("\\", "/")
-                        # Delete from GitHub
-                        url = f"{GH_API}/repos/{GH_REPO}/contents/{rel_path}"
-                        resp = requests.get(url, headers=HEADERS)
-                        if resp.status_code == 200:
-                            sha = resp.json().get("sha")
-                            payload = {
-                                "message": f"Delete {slug} course files",
-                                "branch": "main",
-                                "sha": sha
-                            }
-                            requests.delete(url, headers=HEADERS, data=json.dumps(payload))
+    st.markdown("---")
+    st.warning("⚠️ Danger Zone")
+    if st.button("🗑️ Delete Entire Course", type="primary", use_container_width=True):
+        delete_confirmed = st.checkbox("I understand this will permanently delete all course files and cannot be undone")
+        if delete_confirmed and st.button("Confirm Deletion", type="primary"):
+            # Record deleted paths to remove from GitHub
+            for p in course_dir.rglob("*"):
+                if p.is_file():
+                    rel_path = str(p.relative_to(Path(__file__).parents[1])).replace("\\", "/")
+                    # Delete from GitHub
+                    url = f"{GH_API}/repos/{GH_REPO}/contents/{rel_path}"
+                    resp = requests.get(url, headers=HEADERS)
+                    if resp.status_code == 200:
+                        sha = resp.json().get("sha")
+                        payload = {
+                            "message": f"Delete {slug} course files",
+                            "branch": "main",
+                            "sha": sha
+                        }
+                        requests.delete(url, headers=HEADERS, data=json.dumps(payload))
                 
                 # Delete local files
                 shutil.rmtree(course_dir)
