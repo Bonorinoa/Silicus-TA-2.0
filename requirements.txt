@@ -8,3 +8,4 @@ scipy
 python-dotenv
 requests
 tabulate
+json
