@@ -106,6 +106,19 @@ if prompt:
     answer, numbered_sources = pipeline.generate_answer_with_links(
         prompt, top_pages, course=chosen_course, chat_history=history, temperature=0.2
     )
+    
+    # Add after generating the answer, before displaying it
+    avg_similarity = top_pages["similarity"].mean()
+    col1, col2 = st.columns([2, 1])
+    with col1:
+        if avg_similarity > 0.60:
+            st.success("🎯 High confidence response")
+        elif avg_similarity > 0.45:
+            st.info("ℹ️ Medium confidence response")
+        else:
+            st.warning("⚠️ Low confidence - please verify")
+    with col2:
+        st.metric("Relevance Score", f"{avg_similarity:.2f}", delta=None)
 
     # Render assistant answer with live links
     st.session_state.messages.append({"role": "assistant", "content": answer})
@@ -131,62 +144,41 @@ if prompt:
                 with st.popover(f"PDF Source: {pdf_path.name}, Page {page_num}", use_container_width=True):
                     st.link_button("📄 Open PDF in new tab", pdf_url, use_container_width=True)
                     
-                    # Alternative inline view
-                    with st.expander("Or view inline"):
-                        components.html(
-                            f'<embed src="data:application/pdf;base64,{b64}#page={page_num}" '
-                            'width="100%" height="500" type="application/pdf">',
-                            height=520
-                        )
                 
                 # Clear query param so refresh doesn't reopen
                 st.query_params.clear()
 
 
-        # Add sources expander inside the assistant's message
         with st.expander("📚 Sources", expanded=False):
-            st.markdown("### Referenced Excerpts")
-            
             for i, (_, row) in enumerate(top_pages.iterrows(), 1):
-                filename = row['filename']
-                page_num = row['page_number']
-                similarity = f"{row['similarity']:.2f}"
-                excerpt = row['page_content']
+                # Simple two-column layout
+                col1, col2 = st.columns([5, 1])
                 
-                st.markdown(f"**[{i}] {filename} (Page {page_num}) · Similarity: {similarity}**")
-                st.markdown(f"```\n{excerpt}\n```")
-                
-                # Add unique key to each download button
-                pdf_path = DATA_ROOT / chosen_course / "pdfs" / filename
-                if pdf_path.exists():
-                    with open(pdf_path, "rb") as file:
-                        st.download_button(
-                            label=f"Download {filename}",
-                            data=file,
-                            file_name=filename,
-                            mime="application/pdf",
-                            key=f"download_{i}_{filename}"  # Add unique key
+                with col1:
+                    st.markdown(f"**Source [{i}]** · {row.filename} (Page {row.page_number})")
+                    # Clean display for the excerpt
+                    st.text_area(
+                            label=f"Source content {i}",  # Meaningful label
+                            value=row.page_content, 
+                            height=150, 
+                            key=f"source_text_{i}",
+                            label_visibility="collapsed"  # Hide visually but keep for screen readers
                         )
+                
+                with col2:
+                    # Add download button
+                    pdf_path = DATA_ROOT / chosen_course / "pdfs" / row.filename
+                    if pdf_path.exists():
+                        with open(pdf_path, "rb") as file:
+                            st.download_button(
+                                label="📄 PDF",
+                                data=file,
+                                file_name=row.filename,
+                                mime="application/pdf",
+                                key=f"dl_{i}_{row.filename.replace('.', '_')}"
+                            )
+                
                 st.markdown("---")
         
         
-        # Add at the bottom of the file, after generating the answer
-        # Make sure we're displaying the sources expander
-        #with st.expander("📚 Sources", expanded=False):
-        #    from tabulate import tabulate
-        #    
-        #    # Format sources table with clickable links
-        #    table_data = []
-        #    for i, (_, row) in enumerate(top_pages.iterrows(), 1):
-        #        filename = row['filename']
-        #        page_num = row['page_number']
-        #        similarity = f"{row['similarity']:.2f}"
-        #        excerpt = row['page_content'][:100] + "..." 
-        #        
-        #        # Create a link for each source
-        #        link = f"[View PDF](/PDF_Viewer?course={chosen_course}&filename=#{filename}&page={page_num})"
-        #        
-        #        table_data.append([i, filename, page_num, similarity, excerpt, #link])
-        #    
-        #    headers = ["#", "Document", "Page", "Similarity", "Excerpt", "Link"]
-        #    st.markdown(tabulate(table_data, headers, tablefmt="pipe"))
+        

@@ -233,10 +233,16 @@ if "manage_slug" in st.session_state:
         # filename
         col1.write(p.name)
 
-        # Update the preview button to open in new tab
-        if col2.button("👁️ Preview", key=f"prev_{p.name}"):
-            pdf_path = str(p)
-            st.link_button("Open in new tab", f"/PDF_Viewer?path={pdf_path}&page=1", use_container_width=True)
+        # download PDF feature
+        if col2.button("👁️ View", key=f"view_{p.name}"):
+            with open(p, "rb") as file:
+                col2.download_button(
+                    label="📄 Download",
+                    data=file,
+                    file_name=p.name,
+                    mime="application/pdf",
+                    key=f"dl_admin_{p.name.replace('.', '_')}"
+                )
 
         # 🗑️  delete file
         if col3.button("🗑️ Delete", key=f"del_{p.name}"):

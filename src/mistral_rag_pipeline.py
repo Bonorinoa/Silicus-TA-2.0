@@ -221,17 +221,14 @@ class MistralRAGPipeline:
                                     chat_history=chat_history,
                                     temperature=temperature)
 
-        # Create more robust links
+        # Create more visually distinct citations
         numbered = {}
         for i, row in enumerate(top_pages.itertuples(), 1):
-            # Use filename directly and pass course as parameter
-            link = (
-                f'<a href="/PDF_Viewer?course={course}&filename={row.filename}&page={row.page_number}" '
-                f'target="_blank">[{i}]</a>'
-            )
+            # Create highlighted citation references
+            link = f'<span style="background-color: #e6f0ff; padding: 2px 5px; border-radius: 3px; font-weight: bold;">[{i}]</span>'
             numbered[f"[{i}]"] = link
 
-        # Replace citations in answer with links
+        # Replace citations in answer
         for k, v in numbered.items():
             answer = answer.replace(k, v)
         
