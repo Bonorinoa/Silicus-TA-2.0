@@ -112,19 +112,51 @@ COURSES = discover_courses(DATA_ROOT)
 
 st.subheader("Existing courses")
 if COURSES:
-    cols = st.columns(3)
-    for i, (slug, pq_path) in enumerate(sorted(COURSES.items())):
-        with cols[i % 3]:
-            meta_path = pq_path.parent / "meta.json"
-            meta = safe_load_json(meta_path)
-            pdf_dir = pq_path.parent / "pdfs"
-            n_pdfs = len(list(pdf_dir.glob("*.pdf")))
-            st.markdown(f"### {meta.get('title', slug.upper())}")
-            st.caption(f"{n_pdfs} PDF(s) • "
-                       f"updated {datetime.fromtimestamp(pq_path.stat().st_mtime).date()}")
-            if st.button("Manage", key=f"manage_{slug}"):
-                st.session_state.manage_slug = slug
-                st.rerun()
+    # Use CSS for better grid layout
+    st.markdown("""
+    <style>
+    .course-grid {
+        display: grid;
+        grid-template-columns: repeat(3, 1fr);
+        gap: 20px;
+        margin-bottom: 20px;
+    }
+    .course-card {
+        background-color: #f8f9fa;
+        border-radius: 8px;
+        padding: 15px;
+        height: 100%;
+        border: 1px solid #e0e0e0;
+    }
+    </style>
+    """, unsafe_allow_html=True)
+    
+    # Start grid layout
+    st.markdown('<div class="course-grid">', unsafe_allow_html=True)
+    
+    # Generate cards
+    for slug, pq_path in sorted(COURSES.items()):
+        meta_path = pq_path.parent / "meta.json"
+        meta = safe_load_json(meta_path)
+        pdf_dir = pq_path.parent / "pdfs"
+        n_pdfs = len(list(pdf_dir.glob("*.pdf")))
+        
+        # Create card HTML
+        card_html = f"""
+        <div class="course-card" id="card-{slug}">
+            <h3>{meta.get('title', slug.upper())}</h3>
+            <p>{n_pdfs} PDF(s) • updated {datetime.fromtimestamp(pq_path.stat().st_mtime).date()}</p>
+        </div>
+        """
+        st.markdown(card_html, unsafe_allow_html=True)
+        
+        # Add button below the card HTML
+        if st.button("Manage", key=f"manage_{slug}"):
+            st.session_state.manage_slug = slug
+            st.rerun()
+    
+    # Close grid layout
+    st.markdown('</div>', unsafe_allow_html=True)
 else:
     st.info("No courses yet. Use **Create new course** below.")
 
