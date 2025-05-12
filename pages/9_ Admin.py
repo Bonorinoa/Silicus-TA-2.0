@@ -106,57 +106,44 @@ with st.sidebar:
 
 # --------------------------------------------------------------------------- #
 # 2. COURSE CARDS
-st.title("🛠️ Silicus TA – Course Manager")
+st.title("🛠️ Silicus TA – Course Manager")
 
 COURSES = discover_courses(DATA_ROOT)
 
 st.subheader("Existing courses")
 if COURSES:
-    # Use CSS for better grid layout
-    st.markdown("""
-    <style>
-    .course-grid {
-        display: grid;
-        grid-template-columns: repeat(3, 1fr);
-        gap: 20px;
-        margin-bottom: 20px;
-    }
-    .course-card {
-        background-color: #f8f9fa;
-        border-radius: 8px;
-        padding: 15px;
-        height: 100%;
-        border: 1px solid #e0e0e0;
-    }
-    </style>
-    """, unsafe_allow_html=True)
+    # Create a clean card-based layout using Streamlit containers
+    num_courses = len(COURSES)
+    rows = (num_courses + 2) // 3  # Calculate rows needed (ceiling division)
     
-    # Start grid layout
-    st.markdown('<div class="course-grid">', unsafe_allow_html=True)
-    
-    # Generate cards
-    for slug, pq_path in sorted(COURSES.items()):
-        meta_path = pq_path.parent / "meta.json"
-        meta = safe_load_json(meta_path)
-        pdf_dir = pq_path.parent / "pdfs"
-        n_pdfs = len(list(pdf_dir.glob("*.pdf")))
-        
-        # Create card HTML
-        card_html = f"""
-        <div class="course-card" id="card-{slug}">
-            <h3>{meta.get('title', slug.upper())}</h3>
-            <p>{n_pdfs} PDF(s) • updated {datetime.fromtimestamp(pq_path.stat().st_mtime).date()}</p>
-        </div>
-        """
-        st.markdown(card_html, unsafe_allow_html=True)
-        
-        # Add button below the card HTML
-        if st.button("Manage", key=f"manage_{slug}"):
-            st.session_state.manage_slug = slug
-            st.rerun()
-    
-    # Close grid layout
-    st.markdown('</div>', unsafe_allow_html=True)
+    for row in range(rows):
+        cols = st.columns(3)
+        for col_idx in range(3):
+            course_idx = row * 3 + col_idx
+            if course_idx < num_courses:
+                slug = sorted(COURSES.keys())[course_idx]
+                pq_path = COURSES[slug]
+                
+                with cols[col_idx]:
+                    with st.container():
+                        # Create a card-like container with border
+                        st.markdown(f"""
+                        <div style="border: 1px solid #e0e0e0; border-radius: 8px; padding: 15px; background-color: #f8f9fa;">
+                            <h3>{safe_load_json(pq_path.parent / 'meta.json').get('title', slug.upper())}</h3>
+                        </div>
+                        """, unsafe_allow_html=True)
+                        
+                        # Stats
+                        pdf_dir = pq_path.parent / "pdfs"
+                        n_pdfs = len(list(pdf_dir.glob("*.pdf")))
+                        folder_mb = folder_size(pq_path.parent)
+                        
+                        st.caption(f"{n_pdfs} PDF(s) • {folder_mb:.1f} MB • Updated {datetime.fromtimestamp(pq_path.stat().st_mtime).date()}")
+                        
+                        # Manage button aligned with the card
+                        if st.button("Manage", key=f"manage_{slug}", use_container_width=True):
+                            st.session_state.manage_slug = slug
+                            st.rerun()
 else:
     st.info("No courses yet. Use **Create new course** below.")
 
